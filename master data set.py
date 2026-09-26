@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 
+
 # Load raw datasets
 env_df = pd.read_csv('sensor_869_occupancy_overlap.csv')
 occ_df = pd.read_excel('reduced occupancy data.xlsx')
@@ -27,4 +28,19 @@ master = env_15m.join(occ_15m, how='inner').dropna().reset_index()
 
 # Save master dataset
 master.to_csv('master_aligned_dataset.csv', index=False)
+
+# Add CO2 rate of change column (d[co2]/dt)
+master['co2_rate_of_change'] = master['co2_ppm'].diff().fillna(0)
+
+# Add time-based features
+master['hour'] = master['dt'].dt.hour
+master['day_of_week'] = master['dt'].dt.dayofweek  # 0=Monday, 6=Sunday
+master['is_weekend'] = master['day_of_week'].isin([5, 6]).astype(int)
+
+# Round resampled averages to nearest integer headcount
+master['headcount'] = master['headcount'].round().astype(int)
+
+# Convert to binary state: 1 if occupied for more than half the interval, else 0
+master['is_occupied'] = (master['headcount'] > 0.5).astype(int)
+
 print(f"Master dataset saved! ({len(master):,} rows from {master['dt'].min()} to {master['dt'].max()})")
