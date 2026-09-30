@@ -1,6 +1,7 @@
 # CRITICAL: Ignore large raw dataset exceeding GitHub's 100MB limit (336.5 MB)
 5EnvSensor_MayToDec2024_180kRows.csv
-
+5occupancySensor_MayToDec2024_9MRows.csv
+occupancy_data_2026_only.csv
 # Large excel raw files (optional to exclude or include if <100MB)
 *.xlsx
 
