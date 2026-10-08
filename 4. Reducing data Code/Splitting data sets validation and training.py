@@ -1,27 +1,46 @@
 import os
 import pandas as pd
 
-# Define relative path to your folder
+# Define relative path to your data subfolder
 DATA_DIR = os.path.join('.', '5. Reduced Data')
 
+def parse_timestamp_series(df):
+    """Finds and parses the timestamp column robustly into standard datetime format."""
+    possible_names = ['timestamp', 'dt', 'collecteddate', 'time', 'date', 'datetime']
+    
+    # Identify matching column
+    target_col = None
+    for col in df.columns:
+        if col.strip().lower() in possible_names:
+            target_col = col
+            break
+            
+    if target_col is None:
+        raise KeyError(f"Could not find timestamp column in headers: {list(df.columns)}")
+        
+    # Extract 'YYYY-MM-DD HH:MM:SS' (first 19 characters) to drop tz_offset or trailing artifacts
+    df['dt'] = pd.to_datetime(df[target_col].astype(str).str.slice(0, 19), errors='coerce')
+    return df.sort_values('dt').reset_index(drop=True)
+
+
+# ==============================================================================
+# 1. PROCESS ROOM 869
+# ==============================================================================
 print("Processing Room 869 datasets...")
 
-# Load Room 869 overlap dataset
 df_869 = pd.read_csv(os.path.join(DATA_DIR, 'sensor_869_occupancy_overlap.csv'))
-
-# Clean headers
 df_869.columns = df_869.columns.str.strip().str.replace('\ufeff', '')
 
-# Parse and sort timestamps
-df_869['dt'] = pd.to_datetime(df_869['timestamp'].astype(str).str.slice(0, 19))
-df_869 = df_869.sort_values('dt').reset_index(drop=True)
+# Parse datetime and sort
+df_869 = parse_timestamp_series(df_869)
 
-# --- File 1: Ground-Truth Occupancy (Room 869) ---
-occ_869 = df_869[['dt', 'headcount']].copy()
-occ_869.to_csv(os.path.join(DATA_DIR, '869_occupancy.csv'), index=False)
-print(" -> Saved '869_occupancy.csv'")
+# Save occupancy dataset
+if 'headcount' in df_869.columns:
+    occ_869 = df_869[['dt', 'headcount']].copy()
+    occ_869.to_csv(os.path.join(DATA_DIR, '869_occupancy.csv'), index=False)
+    print(" -> Saved '869_occupancy.csv'")
 
-# --- Files 2 & 3: Environmental Features (Filtered to CO2, Temp, LVOC) ---
+# Filter environmental columns
 env_cols_869 = ['dt', 'co2_ppm', 'temperature_c', 'lvoc_ppb']
 available_cols_869 = [c for c in env_cols_869 if c in df_869.columns]
 df_869_env = df_869[available_cols_869].copy()
@@ -38,29 +57,26 @@ print(" -> Saved '869_train.csv' (First 2/3)")
 print(" -> Saved '869_validation.csv' (Last 1/3)")
 
 
+# ==============================================================================
+# 2. PROCESS ROOM 326
+# ==============================================================================
 print("\nProcessing Room 326 datasets...")
 
-# Load Room 326 environmental dataset
 df_326 = pd.read_csv(os.path.join(DATA_DIR, '5EnvSensor_Cleaned_Tabular.csv'))
 df_326.columns = df_326.columns.str.strip().str.replace('\ufeff', '')
+df_326 = parse_timestamp_series(df_326)
 
-date_col_326 = next(col for col in ['dt', 'timestamp', 'collecteddate'] if col in df_326.columns)
-df_326['dt'] = pd.to_datetime(df_326[date_col_326].astype(str).str.slice(0, 19))
-df_326 = df_326.sort_values('dt').reset_index(drop=True)
-
-# --- File 4: Ground-Truth Occupancy (Room 326) ---
-# Using occupancy_data_2026_only.csv from your folder
+# Occupancy file
 df_occ_full = pd.read_csv(os.path.join(DATA_DIR, 'occupancy_data_2026_only.csv'))
 df_occ_full.columns = df_occ_full.columns.str.strip().str.replace('\ufeff', '')
+df_occ_full = parse_timestamp_series(df_occ_full)
 
-occ_date_col = next(col for col in ['dt', 'timestamp', 'collecteddate'] if col in df_occ_full.columns)
-df_occ_full['dt'] = pd.to_datetime(df_occ_full[occ_date_col].astype(str).str.slice(0, 19))
+if 'headcount' in df_occ_full.columns:
+    occ_326 = df_occ_full[['dt', 'headcount']].copy()
+    occ_326.to_csv(os.path.join(DATA_DIR, '326_occupancy.csv'), index=False)
+    print(" -> Saved '326_occupancy.csv'")
 
-occ_326 = df_occ_full.sort_values('dt')[['dt', 'headcount']].copy()
-occ_326.to_csv(os.path.join(DATA_DIR, '326_occupancy.csv'), index=False)
-print(" -> Saved '326_occupancy.csv'")
-
-# --- Files 5 & 6: Environmental Features (Filtered to CO2, Temp, LVOC) ---
+# Filter environmental columns
 env_cols_326 = ['dt', 'co2_ppm', 'temperature_c', 'lvoc_ppb']
 available_cols_326 = [c for c in env_cols_326 if c in df_326.columns]
 df_326_env = df_326[available_cols_326].copy()
@@ -76,4 +92,4 @@ env_326_val.to_csv(os.path.join(DATA_DIR, '326_validation.csv'), index=False)
 print(" -> Saved '326_train.csv' (First 2/3)")
 print(" -> Saved '326_validation.csv' (Last 1/3)")
 
-print("\nAll files created successfully inside '5. Reduced Data'!")
+print("\nProcessing complete!")
