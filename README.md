@@ -45,7 +45,7 @@ MMA3001 Project/
 │   ├── Linear Regressino Model baseline.py        # Linear regression baseline vs. Decision tree
 │   └── match_rooms.py                             # Correlation analysis utility
 │
-└── plots/                            # High-resolution generated model diagnostic figures
+└── 7. Decision Tree Plots/                            # High-resolution generated model diagnostic figures
     ├── decision_tree_headcount_model.png          # Decision tree validation & generalization plot
     └── linear_regression_vs_decision_tree.png     # Side-by-side baseline comparison plot
 ```
@@ -105,7 +105,7 @@ Feature importance analysis reveals that over **88%** of the Decision Tree's pre
 * **Model Performance & Generalization**: `plots/decision_tree_headcount_model.png`
 * **Baseline vs. Decision Tree Comparison**: `plots/linear_regression_vs_decision_tree.png`
 
-![Model Comparison](plots/linear_regression_vs_decision_tree.png)
+![Model Comparison](7. Decision Tree Plots/linear_regression_vs_decision_tree.png)
 
 ---
 
