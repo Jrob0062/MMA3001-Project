@@ -47,7 +47,8 @@ MMA3001 Project/
 │
 └── plots/                            # High-resolution generated model diagnostic figures
     ├── decision_tree_headcount_model.png          # Decision tree validation & generalization plot
-    └── linear_regression_vs_decision_tree.png     # Side-by-side baseline comparison plot
+    ├── linear_regression_vs_decision_tree.png     # Side-by-side baseline comparison plot
+    └── decision_tree_optimisation_curve.png       # compares MAE for different max depth and leaf samples
 ```
 
 ---
