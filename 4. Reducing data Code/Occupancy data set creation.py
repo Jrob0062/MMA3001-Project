@@ -1,71 +1,140 @@
 import os
+import sys
+import shutil
 import pandas as pd
 
-DATA_DIR = os.path.join('.', '5. Reduced Data')
-
-def clean_and_format_occupancy(input_filename, output_filename, room_id_val):
-    """
-    Loads raw occupancy data, parses timestamps, adds a sensor/room ID, 
-    and saves a clean standalone occupancy file.
-    """
-    input_path = os.path.join(DATA_DIR, input_filename)
-    output_path = os.path.join(DATA_DIR, output_filename)
-    
-    print(f"Processing {input_filename} for Room {room_id_val}...")
-    df = pd.read_csv(input_path)
-    
-    # Clean column headers
-    df.columns = df.columns.str.strip().str.replace('\ufeff', '')
-    
-    # 1. Standardise Timestamp Column
-    dt_candidates = ['timestamp', 'dt', 'collecteddate', 'time', 'date', 'datetime']
-    dt_col = next((c for c in df.columns if c.lower() in dt_candidates), None)
-    if not dt_col:
-        raise KeyError(f"Could not find timestamp in {input_filename}. Columns: {list(df.columns)}")
-    
-    df['dt'] = pd.to_datetime(df[dt_col].astype(str).str.slice(0, 19), errors='coerce')
-    
-    # 2. Standardise Headcount / Occupancy Column
-    occ_candidates = ['headcount', 'occupancy', 'head_count', 'count', 'people', 'occupants']
-    occ_col = next((c for c in df.columns if c.lower() in occ_candidates), None)
-    if not occ_col:
-        raise KeyError(f"Could not find headcount column in {input_filename}. Columns: {list(df.columns)}")
-    
-    # 3. Build Clean Standalone DataFrame
-    clean_df = pd.DataFrame()
-    clean_df['dt'] = df['dt']
-    clean_df['sensor_id'] = room_id_val  # Explicitly add sensor/room identifier
-    clean_df['headcount'] = pd.to_numeric(df[occ_col], errors='coerce')
-    
-    # Drop rows with missing values and sort chronologically
-    clean_df = clean_df.dropna().sort_values('dt').reset_index(drop=True)
-    
-    # Save to CSV
-    clean_df.to_csv(output_path, index=False)
-    print(f"Successfully saved clean file to: {output_path} ({len(clean_df)} rows)\n")
-
 # ==============================================================================
-# EXECUTE REBUILD FOR ROOM 869 & ROOM 326
+# PATH CONFIGURATION
 # ==============================================================================
+# Determine base directories robustly whether executed from repo root or scripts folder
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..')) if os.path.basename(SCRIPT_DIR) == '4. Reducing data Code' else os.path.abspath('.')
 
-# 1. Rebuild Room 869 Occupancy
-# (Change 'sensor_869_occupancy_overlap.csv' to whatever raw source file you use for 869 occupancy)
-try:
-    clean_and_format_occupancy(
-        input_filename='sensor_869_occupancy_overlap.csv', 
-        output_filename='869_occupancy.csv', 
-        room_id_val='Room_869'
-    )
-except Exception as e:
-    print(f"Room 869 processing note: {e}")
+DATA_DIR = os.path.join(PROJECT_ROOT, '5. Reduced Data')
+RAW_DIR = os.path.join(PROJECT_ROOT, '1. Given Data')
+RAW_OCCUPANCY_FILE = os.path.join(RAW_DIR, '5occupancySensor_MayToDec2024_9MRows.csv')
 
-# 2. Rebuild Room 326 Occupancy
-# (Using 'occupancy_data_2026_only.csv' or your master occupancy log)
-try:
-    clean_and_format_occupancy(
-        input_filename='occupancy_data_2026_only.csv', 
-        output_filename='326_occupancy.csv', 
-        room_id_val='Room_326'
-    )
-except Exception as e:
-    print(f"Room 326 processing note: {e}")
+
+def get_sensor_time_bounds(sensor_id, default_start=None, default_end=None):
+    """
+    Extracts the combined minimum and maximum timestamps from the sensor's
+    training and validation CSV files in '5. Reduced Data'.
+    """
+    train_path = os.path.join(DATA_DIR, f"{sensor_id}_train.csv")
+    val_path = os.path.join(DATA_DIR, f"{sensor_id}_validation.csv")
+    
+    if not os.path.exists(train_path) or not os.path.exists(val_path):
+        if default_start and default_end:
+            print(f"Train/val files for {sensor_id} not found. Using fallback bounds: {default_start} to {default_end}")
+            return default_start, default_end
+        raise FileNotFoundError(f"Missing train or validation file for Sensor {sensor_id} in {DATA_DIR}.")
+
+    df_train = pd.read_csv(train_path)
+    df_val = pd.read_csv(val_path)
+
+    # Detect timestamp column
+    time_cols = ['dt', 'timestamp', 'collecteddate', 'occupancystatuschangedate', 'time', 'date']
+    t_train = next((c for c in df_train.columns if c.strip().lower() in time_cols), None)
+    t_val = next((c for c in df_val.columns if c.strip().lower() in time_cols), None)
+
+    if not t_train or not t_val:
+        raise KeyError(f"Could not identify datetime column in {sensor_id} train/val files.")
+
+    combined_ts = pd.concat([df_train[t_train], df_val[t_val]]).astype(str).str.slice(0, 19)
+    min_ts = combined_ts.min()
+    max_ts = combined_ts.max()
+    
+    return min_ts, max_ts
+
+
+def create_occupancy_datasets():
+    """
+    Extracts Room 869 and Room 326 occupancy datasets in a single chunked pass
+    over the 9M-row raw occupancy CSV, matching their train/val time periods
+    and retaining occupancystatuschangedate, id, headcount, occupancystatus, and floorspaceid.
+    """
+    print("=" * 80)
+    print("OCCUPANCY DATASET EXTRACTION PIPELINE")
+    print("=" * 80)
+    
+    if not os.path.exists(RAW_OCCUPANCY_FILE):
+        raise FileNotFoundError(f"Raw occupancy CSV not found at: {RAW_OCCUPANCY_FILE}")
+
+    # 1. Determine exact time periods from train and validation datasets
+    start_869, end_869 = get_sensor_time_bounds('869', '2024-03-15 00:00:14', '2024-06-14 03:43:04')
+    start_326, end_326 = get_sensor_time_bounds('326', '2025-10-01 00:01:03', '2026-04-22 23:20:33')
+
+    print(f"Target Time Window for Sensor 869: {start_869}  -->  {end_869}")
+    print(f"Target Time Window for Sensor 326: {start_326}  -->  {end_326}")
+    print(f"Source file: {RAW_OCCUPANCY_FILE}")
+    print("-" * 80)
+
+    # Columns to retain
+    cols_to_load = ['occupancystatuschangedate', 'id', 'headcount', 'occupancystatus', 'floorspaceid']
+
+    # Destination file paths
+    out_869_path = os.path.join(DATA_DIR, '869_occupancy.csv')
+    out_326_path = os.path.join(DATA_DIR, '326_occupancy.csv')
+
+    chunks_869 = []
+    total_rows_869 = 0
+    total_rows_326 = 0
+    first_chunk_326 = True
+    processed_rows = 0
+    chunksize = 1_000_000
+
+    print("Beginning single-pass streaming of raw occupancy data in chunks of 1M rows...")
+
+    for chunk in pd.read_csv(RAW_OCCUPANCY_FILE, usecols=cols_to_load, chunksize=chunksize, low_memory=False):
+        processed_rows += len(chunk)
+        
+        # Extract standardized YYYY-MM-DD HH:MM:SS for robust string-based date range filtering
+        ts_slice = chunk['occupancystatuschangedate'].astype(str).str.slice(0, 19)
+
+        # -------------------------------------------------------------
+        # Filter for Room 869
+        # -------------------------------------------------------------
+        mask_869 = (ts_slice >= start_869) & (ts_slice <= end_869)
+        if mask_869.any():
+            sub_869 = chunk.loc[mask_869, cols_to_load]
+            chunks_869.append(sub_869)
+            total_rows_869 += len(sub_869)
+
+        # -------------------------------------------------------------
+        # Filter for Room 326 (Stream-append directly to disk to preserve RAM)
+        # -------------------------------------------------------------
+        mask_326 = (ts_slice >= start_326) & (ts_slice <= end_326)
+        if mask_326.any():
+            sub_326 = chunk.loc[mask_326, cols_to_load]
+            sub_326.to_csv(out_326_path, mode='w' if first_chunk_326 else 'a', 
+                           header=first_chunk_326, index=False)
+            first_chunk_326 = False
+            total_rows_326 += len(sub_326)
+
+        print(f"Processed {processed_rows:,} raw rows... [869 matches: {total_rows_869:,} | 326 matches: {total_rows_326:,}]")
+
+    print("\nFinalizing Room 869 occupancy file...")
+    if chunks_869:
+        df_869 = pd.concat(chunks_869, ignore_index=True)
+        # Sort chronologically by change date and id
+        df_869 = df_869.sort_values(by=['occupancystatuschangedate', 'id']).reset_index(drop=True)
+        df_869.to_csv(out_869_path, index=False)
+        print(f" -> Saved: {out_869_path} ({len(df_869):,} rows)")
+    else:
+        print("Warning: No matching records found for Room 869.")
+
+    if os.path.exists(out_326_path):
+        print(f"\nFinalized Room 326 occupancy file:")
+        print(f" -> Saved: {out_326_path} ({total_rows_326:,} rows)")
+
+    print("\n" + "=" * 80)
+    print("SUMMARY")
+    print("=" * 80)
+    print(f"Room 869 occupancy: {total_rows_869:,} rows (Coverage: {start_869} to {end_869})")
+    print(f"Room 326 occupancy: {total_rows_326:,} rows (Coverage: {start_326} to {end_326})")
+    print(f"Retained columns: {cols_to_load}")
+    print("Done!")
+
+
+if __name__ == '__main__':
+    create_occupancy_datasets()
