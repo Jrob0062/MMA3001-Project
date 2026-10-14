@@ -102,8 +102,8 @@ Feature importance analysis reveals that over **88%** of the Decision Tree's pre
 
 ## 📊 Visualizations
 
-* **Model Performance & Generalization**: `plots/decision_tree_headcount_model.png`
-* **Baseline vs. Decision Tree Comparison**: `plots/linear_regression_vs_decision_tree.png`
+* **Model Performance & Generalization**: `7. Decision Tree Plots/decision_tree_headcount_model.png`
+* **Baseline vs. Decision Tree Comparison**: `7. Decision Tree Plots/linear_regression_vs_decision_tree.png`
 
 ![Model Comparison](7. Decision Tree Plots/linear_regression_vs_decision_tree.png)
 
