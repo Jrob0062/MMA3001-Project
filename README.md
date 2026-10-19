@@ -45,7 +45,7 @@ MMA3001 Project/
 │   ├── Linear Regressino Model baseline.py        # Linear regression baseline vs. Decision tree
 │   └── match_rooms.py                             # Correlation analysis utility
 │
-└── 7. Decision Tree Plots/                            # High-resolution generated model diagnostic figures
+└── plots/                            # (7. Decision Tree Plots) High-resolution generated model diagnostic figures
     ├── decision_tree_headcount_model.png          # Decision tree validation & generalization plot
     ├── linear_regression_vs_decision_tree.png     # Side-by-side baseline comparison plot
     └── decision_tree_optimisation_curve.png       # compares MAE for different max depth and leaf samples
