@@ -2,7 +2,7 @@
 **/5EnvSensor_MayToDec2024_180kRows.csv
 **/5occupancySensor_MayToDec2024_9MRows.csv
 **/occupancy_data_2026_only.csv
-1. Given Data/
+
 
 # Large generated occupancy files exceeding GitHub's 100MB limit
 **/869_occupancy.csv
