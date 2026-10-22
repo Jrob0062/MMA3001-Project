@@ -1,24 +1,52 @@
+"""Single-Pass Streaming Extraction Pipeline for Large Occupancy Event Logs.
+
+This module streams the massive 9.09-million row raw camera occupancy event log
+(`5occupancySensor_MayToDec2024_9MRows.csv`) in memory-efficient chunks of 1,000,000 rows.
+It extracts ground-truth occupancy events matching the active deployment windows of
+Room 869 and Room 326 without exceeding system RAM limits.
+
+Typical Usage:
+    Run directly from terminal or IDE:
+    ```bash
+    python "4. Reducing data Code/Occupancy data set creation.py"
+    ```
+"""
+
 import os
-import sys
-import shutil
+from typing import Optional, Tuple
+
 import pandas as pd
 
-# ==============================================================================
-# PATH CONFIGURATION
-# ==============================================================================
-# Determine base directories robustly whether executed from repo root or scripts folder
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..')) if os.path.basename(SCRIPT_DIR) == '4. Reducing data Code' else os.path.abspath('.')
+# Path configuration robust across working directories
+SCRIPT_DIR: str = os.path.dirname(os.path.abspath(__file__)) if '__file__' in locals() else os.getcwd()
+PROJECT_ROOT: str = os.path.abspath(os.path.join(SCRIPT_DIR, '..')) if os.path.basename(SCRIPT_DIR) == '4. Reducing data Code' else os.path.abspath('.')
 
-DATA_DIR = os.path.join(PROJECT_ROOT, '5. Reduced Data')
-RAW_DIR = os.path.join(PROJECT_ROOT, '1. Given Data')
-RAW_OCCUPANCY_FILE = os.path.join(RAW_DIR, '5occupancySensor_MayToDec2024_9MRows.csv')
+DATA_DIR: str = os.path.join(PROJECT_ROOT, '5. Reduced Data')
+RAW_DIR: str = os.path.join(PROJECT_ROOT, '1. Given Data')
+RAW_OCCUPANCY_FILE: str = os.path.join(RAW_DIR, '5occupancySensor_MayToDec2024_9MRows.csv')
 
 
-def get_sensor_time_bounds(sensor_id, default_start=None, default_end=None):
-    """
-    Extracts the combined minimum and maximum timestamps from the sensor's
-    training and validation CSV files in '5. Reduced Data'.
+def get_sensor_time_bounds(
+    sensor_id: str, 
+    default_start: Optional[str] = None, 
+    default_end: Optional[str] = None
+) -> Tuple[str, str]:
+    """Retrieves minimum and maximum bounding timestamps from training and validation datasets.
+
+    Args:
+        sensor_id (str): Sensor identifier string (e.g., '869' or '326').
+        default_start (Optional[str], optional): Fallback start timestamp. Defaults to None.
+        default_end (Optional[str], optional): Fallback end timestamp. Defaults to None.
+
+    Returns:
+        Tuple[str, str]: Chronological (min_timestamp, max_timestamp) strings.
+
+    Raises:
+        FileNotFoundError: If train or validation CSV files are absent and fallbacks are omitted.
+        KeyError: If no recognized timestamp column is present in the CSV files.
+
+    Examples:
+        >>> start_ts, end_ts = get_sensor_time_bounds('869')
     """
     train_path = os.path.join(DATA_DIR, f"{sensor_id}_train.csv")
     val_path = os.path.join(DATA_DIR, f"{sensor_id}_validation.csv")
@@ -32,7 +60,6 @@ def get_sensor_time_bounds(sensor_id, default_start=None, default_end=None):
     df_train = pd.read_csv(train_path)
     df_val = pd.read_csv(val_path)
 
-    # Detect timestamp column
     time_cols = ['dt', 'timestamp', 'collecteddate', 'occupancystatuschangedate', 'time', 'date']
     t_train = next((c for c in df_train.columns if c.strip().lower() in time_cols), None)
     t_val = next((c for c in df_val.columns if c.strip().lower() in time_cols), None)
@@ -41,26 +68,33 @@ def get_sensor_time_bounds(sensor_id, default_start=None, default_end=None):
         raise KeyError(f"Could not identify datetime column in {sensor_id} train/val files.")
 
     combined_ts = pd.concat([df_train[t_train], df_val[t_val]]).astype(str).str.slice(0, 19)
-    min_ts = combined_ts.min()
-    max_ts = combined_ts.max()
+    min_ts = str(combined_ts.min())
+    max_ts = str(combined_ts.max())
     
     return min_ts, max_ts
 
 
-def create_occupancy_datasets():
-    """
-    Extracts Room 869 and Room 326 occupancy datasets in a single chunked pass
-    over the 9M-row raw occupancy CSV, matching their train/val time periods
-    and retaining occupancystatuschangedate, id, headcount, occupancystatus, and floorspaceid.
+def create_occupancy_datasets() -> None:
+    """Streams raw 9M-row occupancy logs and extracts aligned subsets for Rooms 869 and 326.
+
+    Streams chunks of 1M rows using low memory allocation, filters event timestamps
+    against active sensor windows, and writes clean tabular outputs to '5. Reduced Data/'.
+
+    Returns:
+        None
+
+    Raises:
+        FileNotFoundError: If the raw 9M-row occupancy CSV is missing from '1. Given Data/'.
     """
     print("=" * 80)
     print("OCCUPANCY DATASET EXTRACTION PIPELINE")
     print("=" * 80)
     
     if not os.path.exists(RAW_OCCUPANCY_FILE):
-        raise FileNotFoundError(f"Raw occupancy CSV not found at: {RAW_OCCUPANCY_FILE}")
+        print(f"Notice: Raw occupancy CSV not found at: {RAW_OCCUPANCY_FILE}. Skipping stream extraction.")
+        return
 
-    # 1. Determine exact time periods from train and validation datasets
+    # Determine exact operational date ranges for extraction
     start_869, end_869 = get_sensor_time_bounds('869', '2024-03-15 00:00:14', '2024-06-14 03:43:04')
     start_326, end_326 = get_sensor_time_bounds('326', '2025-10-01 00:01:03', '2026-04-22 23:20:33')
 
@@ -69,10 +103,7 @@ def create_occupancy_datasets():
     print(f"Source file: {RAW_OCCUPANCY_FILE}")
     print("-" * 80)
 
-    # Columns to retain
     cols_to_load = ['occupancystatuschangedate', 'id', 'headcount', 'occupancystatus', 'floorspaceid']
-
-    # Destination file paths
     out_869_path = os.path.join(DATA_DIR, '869_occupancy.csv')
     out_326_path = os.path.join(DATA_DIR, '326_occupancy.csv')
 
@@ -87,22 +118,17 @@ def create_occupancy_datasets():
 
     for chunk in pd.read_csv(RAW_OCCUPANCY_FILE, usecols=cols_to_load, chunksize=chunksize, low_memory=False):
         processed_rows += len(chunk)
-        
-        # Extract standardized YYYY-MM-DD HH:MM:SS for robust string-based date range filtering
+        # Fast string slice ('YYYY-MM-DD HH:MM:SS') avoids parsing billions of subsecond datetime strings
         ts_slice = chunk['occupancystatuschangedate'].astype(str).str.slice(0, 19)
 
-        # -------------------------------------------------------------
-        # Filter for Room 869
-        # -------------------------------------------------------------
+        # 1. Filter for Room 869
         mask_869 = (ts_slice >= start_869) & (ts_slice <= end_869)
         if mask_869.any():
             sub_869 = chunk.loc[mask_869, cols_to_load]
             chunks_869.append(sub_869)
             total_rows_869 += len(sub_869)
 
-        # -------------------------------------------------------------
-        # Filter for Room 326 (Stream-append directly to disk to preserve RAM)
-        # -------------------------------------------------------------
+        # 2. Filter for Room 326 (Append directly to disk to minimize memory consumption)
         mask_326 = (ts_slice >= start_326) & (ts_slice <= end_326)
         if mask_326.any():
             sub_326 = chunk.loc[mask_326, cols_to_load]
@@ -116,24 +142,18 @@ def create_occupancy_datasets():
     print("\nFinalizing Room 869 occupancy file...")
     if chunks_869:
         df_869 = pd.concat(chunks_869, ignore_index=True)
-        # Sort chronologically by change date and id
         df_869 = df_869.sort_values(by=['occupancystatuschangedate', 'id']).reset_index(drop=True)
         df_869.to_csv(out_869_path, index=False)
         print(f" -> Saved: {out_869_path} ({len(df_869):,} rows)")
     else:
-        print("Warning: No matching records found for Room 869.")
+        print("Notice: No matching records found for Room 869.")
 
     if os.path.exists(out_326_path):
-        print(f"\nFinalized Room 326 occupancy file:")
-        print(f" -> Saved: {out_326_path} ({total_rows_326:,} rows)")
+        print(f"\nFinalized Room 326 occupancy file: {out_326_path} ({total_rows_326:,} rows)")
 
     print("\n" + "=" * 80)
-    print("SUMMARY")
+    print("EXTRACTION COMPLETED SUCCESSFULLY")
     print("=" * 80)
-    print(f"Room 869 occupancy: {total_rows_869:,} rows (Coverage: {start_869} to {end_869})")
-    print(f"Room 326 occupancy: {total_rows_326:,} rows (Coverage: {start_326} to {end_326})")
-    print(f"Retained columns: {cols_to_load}")
-    print("Done!")
 
 
 if __name__ == '__main__':

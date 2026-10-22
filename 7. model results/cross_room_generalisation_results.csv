@@ -1,0 +1,2 @@
+floorspace_id,room_short_id,sample_count,mae_people,rmse_people,r2_score,actual_mean_headcount,pred_mean_headcount,actual_max_headcount,is_best_co2_match
+Room_326_Standalone,Room 326,26979,0.6487,1.7229,-0.0313,0.5695,0.2595,61,True

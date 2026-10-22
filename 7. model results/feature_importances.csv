@@ -1,0 +1,16 @@
+feature_name,importance_score,importance_percentage
+co2_ppm,0.535792,53.58
+hour,0.345441,34.54
+co2_ppm_roll3,0.057583,5.76
+day_of_week,0.041687,4.17
+temperature_c,0.005246,0.52
+temperature_c_lag1,0.004925,0.49
+lvoc_ppb,0.003646,0.36
+lvoc_ppb_roll3,0.003588,0.36
+temperature_c_diff1,0.00125,0.12
+temperature_c_roll3,0.000583,0.06
+co2_ppm_lag1,0.000259,0.03
+is_weekend,0.0,0.0
+co2_ppm_diff1,0.0,0.0
+lvoc_ppb_lag1,0.0,0.0
+lvoc_ppb_diff1,0.0,0.0

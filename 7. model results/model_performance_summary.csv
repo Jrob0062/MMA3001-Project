@@ -1,0 +1,4 @@
+model_name,evaluation_stage,room_id,dataset_split,sample_count,mae_people,rmse_people,r2_score,actual_mean_headcount,predicted_mean_headcount,best_max_depth,best_min_samples_leaf
+Optimised Decision Tree Regressor,Training Set (In-Sample Fit),Room 869 (941f0352-bb69-47d0-a9c5-ac29eb4f7319),869_train.csv,8107,0.5106,0.7487,0.4303,0.6819,0.6819,5,10
+Optimised Decision Tree Regressor,Validation Set (In-Room Temporal Validation),Room 869 (941f0352-bb69-47d0-a9c5-ac29eb4f7319),869_validation.csv,4053,0.4888,0.714,0.2453,0.4639,0.5852,5,10
+Optimised Decision Tree Regressor,Generalisation Test (Out-of-Sample Transfer Room),Room 326 (Full),326_train.csv + 326_validation.csv,26979,0.6487,1.7229,-0.0313,0.5695,0.2595,5,10

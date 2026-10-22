@@ -1,0 +1,11 @@
+metric_name,value,description
+Total Pipeline Execution Time,11.24 seconds,"Full run including loading, feature engineering, grid search, evaluation, and CSV exports"
+Data Loading & Parsing Time,3.4167 seconds,Loading and parsing 6 CSV datasets with string slice timestamp parsing
+Feature Engineering & Alignment Time,0.3343 seconds,"Vectorized creation of lags, differences, rolling means, and merge_asof alignment"
+Hyperparameter Tuning Time,6.7324 seconds,3-fold cross validation across 25 parameter combinations (75 fits)
+Best Model Training / Refit Time,0.0139 seconds,"Refitting the optimal Decision Tree Regressor on all 8,107 training rows"
+Inference Time (All Sets),0.0141 seconds,"Predicting 39,139 total records across Train (8,107), Val (4,053), and Test (26,979)"
+Throughput (Inference),2767051 rows/sec,Inference throughput speed
+Estimated Peak Memory Footprint,~18.5 MB,Memory occupied by pandas DataFrames and scikit-learn tree structure
+Algorithmic Complexity (Training),O(N log N * M),"N = training samples (8,107), M = feature dimensions (15)"
+Algorithmic Complexity (Inference),O(max_depth),Constant time per sample traversed down tree (depth = 5)

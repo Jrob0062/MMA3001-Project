@@ -1,0 +1,7 @@
+model,stage,samples,mae_people,rmse_people,r2_score
+Linear Regression Baseline,869 Train,8107,0.5954,0.8038,0.3433
+Decision Tree Regressor,869 Train,8107,0.5122,0.7492,0.4294
+Linear Regression Baseline,869 Validation,4053,0.5724,0.7459,0.1763
+Decision Tree Regressor,869 Validation,4053,0.4879,0.709,0.2559
+Linear Regression Baseline,326 Generalisation Test,26979,1.0686,1.9218,-0.2832
+Decision Tree Regressor,326 Generalisation Test,26979,0.6514,1.7238,-0.0324
