@@ -14,6 +14,13 @@ Indoor air quality and occupancy dynamics are intrinsically linked through human
 
 ---
 
+## 📄 Project Documentation
+The complete formal technical report (MMA3001 Data Analysis Report) can be accessed below:
+* **[Download Final PDF Report](./MMA3001%20Data%20Analysis%20Report%20-%2034988041.pdf)**
+* **Generated Source Documentation:** Explore the `docs/` folder for HTML-formatted code documentation.
+  
+---
+
 ## 🏗️ Repository Architecture
 
 ```text
